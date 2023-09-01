@@ -80,7 +80,7 @@ def run(
         exit(1)
 
     fastani_result_file = workdir / "fastani_result"
-    fastani_matrix_file = Path(str(fastani_result_file) + ".matrix")
+    fastani_matrix_file = Path(f"{str(fastani_result_file)}.matrix")
     if not fastani_matrix_file.exists():
         print(f"# Step1: Run fastANI between all-vs-all {genome_num} genomes.")
         add_bin_path()
@@ -101,13 +101,12 @@ def run(
 
     # Output dendrogram tree as newick format tree
     tree = hc.to_tree(linkage)
-    if isinstance(tree, ClusterNode):
-        dendrogram_newick_file = outdir / "ANIclustermap_dendrogram.nwk"
-        with open(dendrogram_newick_file, "w") as f:
-            f.write(dendrogram2newick(tree, tree.dist, list(fastani_df.columns)))
-    else:
+    if not isinstance(tree, ClusterNode):
         raise ValueError("Invalid hierarchy cluster detected!!")
 
+    dendrogram_newick_file = outdir / "ANIclustermap_dendrogram.nwk"
+    with open(dendrogram_newick_file, "w") as f:
+        f.write(dendrogram2newick(tree, tree.dist, list(fastani_df.columns)))
     # Draw ANI clustermap
     print("# Step3: Using clustered matrix, draw ANI clustermap by seaborn.\n")
     if cmap_ranges is None:
@@ -262,15 +261,11 @@ def dendrogram2newick(
     """
     if node.is_leaf():
         return f"{leaf_names[node.id]}:{(parent_dist - node.dist):.2f}{newick}"
-    else:
-        if len(newick) > 0:
-            newick = f"):{(parent_dist - node.dist):.2f}{newick}"
-        else:
-            newick = ");"
-        newick = dendrogram2newick(node.left, node.dist, leaf_names, newick)
-        newick = dendrogram2newick(node.right, node.dist, leaf_names, f",{newick}")
-        newick = f"({newick}"
-        return newick
+    newick = f"):{parent_dist - node.dist:.2f}{newick}" if newick != "" else ");"
+    newick = dendrogram2newick(node.left, node.dist, leaf_names, newick)
+    newick = dendrogram2newick(node.right, node.dist, leaf_names, f",{newick}")
+    newick = f"({newick}"
+    return newick
 
 
 def get_clustered_matrix(original_df: pd.DataFrame, g: ClusterGrid) -> pd.DataFrame:
